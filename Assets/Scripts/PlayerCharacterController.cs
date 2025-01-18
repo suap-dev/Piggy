@@ -7,23 +7,16 @@ public enum CameraType
     Isometric
 }
 
-struct InputData
-{
-    public Vector2 MouseDelta;
-    public Vector2 DirectionalInput;
-    public bool Jump;
-}
-
-
 public class PlayerCharacterController : MonoBehaviour
 {
+    // public
+
     public bool getRawInputData;
 
     [Header("Movement")] public float maxGroundSpeed = 10;
     public float jumpHeight = 0.5f;
 
-    [Header("Mesh")]
-    public Transform meshTransform;
+    [Header("Mesh")] public Transform meshTransform;
 
     [Header("Camera")] public CameraType cameraType;
     public Transform cameraPivot;
@@ -43,7 +36,9 @@ public class PlayerCharacterController : MonoBehaviour
     public float isometricCameraFov = 30;
     public float isometricCameraDistance = 12;
 
-    private InputData _inputData;
+    // private
+
+    private InputHandler _inputHandler;
 
     private Vector3 _worldDirection;
     private Vector3 _lastWorldDirectionAboveThreshold;
@@ -62,6 +57,7 @@ public class PlayerCharacterController : MonoBehaviour
 
     private void Start()
     {
+        _inputHandler = new InputHandler();
         _characterController = GetComponent<CharacterController>();
         _characterTransform = transform;
         _jumpLaunchVelocity = Mathf.Sqrt(-2 * Physics.gravity.y * jumpHeight) * Vector3.up;
@@ -73,7 +69,8 @@ public class PlayerCharacterController : MonoBehaviour
 
     private void Update()
     {
-        UpdateInputData();
+        // UpdateInputData();
+        _inputHandler.GetInput(getRawInputData);
         UpdateCamera();
         UpdateDirectionWithInputData();
         UpdateMeshRotation();
@@ -81,28 +78,12 @@ public class PlayerCharacterController : MonoBehaviour
         _characterController.Move(_velocity * Time.deltaTime);
     }
 
-    private void UpdateInputData()
-    {
-        if (getRawInputData)
-        {
-            _inputData.MouseDelta = new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y"));
-            _inputData.DirectionalInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        }
-        else
-        {
-            _inputData.MouseDelta = new Vector2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
-            _inputData.DirectionalInput = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
-        }
-
-        _inputData.Jump = Input.GetButton("Jump");
-    }
-
     private void UpdateCameraPitch()
     {
         switch (cameraType)
         {
             case CameraType.ThirdPerson:
-                var pitchDelta = _inputData.MouseDelta.y * thirdPersonCameraPitchSpeed;
+                var pitchDelta = _inputHandler.MouseDelta.y * thirdPersonCameraPitchSpeed;
                 _currentCameraPitch =
                     Mathf.Clamp(
                         AngleTo_180_180(_currentCameraPitch) - pitchDelta,
@@ -122,7 +103,7 @@ public class PlayerCharacterController : MonoBehaviour
         switch (cameraType)
         {
             case CameraType.ThirdPerson:
-                var yawDelta = _inputData.MouseDelta.x * thirdPersonCameraYawSpeed;
+                var yawDelta = _inputHandler.MouseDelta.x * thirdPersonCameraYawSpeed;
                 _characterTransform.Rotate(Vector3.up, yawDelta);
                 break;
             case CameraType.Isometric:
@@ -174,9 +155,9 @@ public class PlayerCharacterController : MonoBehaviour
         _worldDirection =
             _characterTransform.TransformVector(Vector3.ClampMagnitude(new Vector3
             {
-                x = _inputData.DirectionalInput.x,
+                x = _inputHandler.DirectionalInput.x,
                 y = 0,
-                z = _inputData.DirectionalInput.y,
+                z = _inputHandler.DirectionalInput.y,
             }, cap));
 
         if (_worldDirection.sqrMagnitude > DirectionSqrMagnitudeThreshold)
@@ -190,7 +171,7 @@ public class PlayerCharacterController : MonoBehaviour
         if (_characterController.isGrounded)
         {
             _velocity = maxGroundSpeed * _worldDirection;
-            if (_inputData.Jump)
+            if (_inputHandler.Jump)
             {
                 _velocity += _jumpLaunchVelocity;
             }
@@ -240,5 +221,35 @@ public class PlayerCharacterController : MonoBehaviour
     private static float AngleTo_180_180(float angle)
     {
         return angle > 180f ? angle - 360f : angle;
+    }
+}
+
+
+internal class InputHandler
+{
+    public Vector2 MouseDelta;
+    public Vector2 DirectionalInput;
+    public bool Jump;
+
+    public void GetInput(bool raw = true)
+    {
+        if (raw)
+        {
+            MouseDelta.x = Input.GetAxisRaw("Mouse X");
+            MouseDelta.y = Input.GetAxisRaw("Mouse Y");
+
+            DirectionalInput.x = Input.GetAxisRaw("Horizontal");
+            DirectionalInput.y = Input.GetAxisRaw("Vertical");
+        }
+        else
+        {
+            MouseDelta.x = Input.GetAxis("Mouse X");
+            MouseDelta.y = Input.GetAxis("Mouse Y");
+
+            DirectionalInput.x = Input.GetAxis("Horizontal");
+            DirectionalInput.y = Input.GetAxis("Vertical");
+        }
+
+        Jump = Input.GetButton("Jump");
     }
 }
